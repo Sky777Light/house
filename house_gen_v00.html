@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>HouseGen</title>
+  <link href="css/style.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+  <script type="text/javascript" src="js/jquery-3.0.0.js"></script>
+  <script type="text/javascript" src="js/three.js"></script>
+  <script type="text/javascript" src="js/AnimationHandler.js"></script>
+  <script type="text/javascript" src="js/ColladaLoader.js"></script>
+  <script type="text/javascript" src="js/OrbitControls.js"></script>
+  <script type="text/javascript" src="js/dat.js"></script>
+  <script type="text/javascript" src="js/Detector.js"></script>
+  <script type="text/javascript" src="js/shaders/ShaderLib.js"></script>
+  <script type="text/javascript" src="js/SkyShader.js"></script>
+  <script type="text/javascript" src="js/hg_widget.js"></script>
+  <script type="text/javascript" src="js/hg_utils.js"></script>
+  <script type="text/javascript" src="js/hg_controls.js"></script>
+  <script type="text/javascript" src="js/hg_environment.js"></script>
+
+<script id="vs" type="x-shader/x-vertex">
+    attribute float size;
+    attribute vec3 customColor;
+    attribute float alpha;
+
+    varying vec3 vColor;
+    uniform float hi;
+    varying float vAlpha;
+
+    void main()
+    {
+        vColor = customColor;
+        vAlpha = alpha;
+        vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+        gl_PointSize = size * ( 60.0 / length(mvPosition.xyz) );
+        gl_Position = projectionMatrix * mvPosition;
+    }
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+    uniform vec3 color;
+    uniform sampler2D texture;
+
+    varying vec3 vColor;
+    varying float vAlpha;
+
+    void main()
+    {
+        gl_FragColor = vec4( color * vColor, vAlpha );
+        gl_FragColor = gl_FragColor * texture2D( texture, gl_PointCoord );
+    }
+</script>
+
+
+
+<script type="application/x-glsl" id="sky-vertex">
+varying vec2 vUV;
+
+void main() {
+  vUV = uv;
+  vec4 pos = vec4(position, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * pos;
+}
+</script>
+
+<script type="application/x-glsl" id="sky-fragment">
+uniform sampler2D texture;
+varying vec2 vUV;
+
+void main() {
+  vec4 sample = texture2D(texture, vUV);
+  gl_FragColor = vec4(sample.xyz, sample.w);
+}
+</script>
+
+  <div id="parent_div" style="height: 500px; width: 800px; top: 0px; left: 200px; background: #000000; position: relative;"></div>
+  <div id="parent_div_1" style="height: 200px; width: 200px; top: 100px; left: 0px; background: #000000; position: absolute;"></div>
+  <div id="tool_bar" style="height: 600px; width: 180px; top: 0px; background: #8a8a8a; position: absolute;"></div>
+
+  <script>
+    "use strict";
+
+    //$("#tool_bar").append('<button id="bt_snapshot" class="hg_button">snapshot</button>');
+	// add external controls for tests
+	//$("#tool_bar").append('<label>Ext. Controller</label>');
+	//$("#tool_bar").append('<button id="bt_big_size" class="hg_button">800x500</button>');
+	//$("#tool_bar").append('<button id="bt_small_size" class="hg_button">500x500</button>');
+	$("#tool_bar").append('<label>Roof material</label><br>');
+	$("#tool_bar").append('<input type="radio" name="rm" value="black_flat" onchange="onRMCheck()">black flat</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rm" value="black_wavy" onchange="onRMCheck()">black wavy</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rm" value="red_flat" onchange="onRMCheck()">red flat</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rm" value="red_wavy" onchange="onRMCheck()">red wavy</input><br>');
+	$("#tool_bar").append('<label>Roof type</label><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="0" onchange="onRTCheck()">roof 0</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="1" onchange="onRTCheck()">roof 1</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="2" onchange="onRTCheck()">roof 2</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="3" onchange="onRTCheck()">roof 3</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="4" onchange="onRTCheck()">roof 4</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="5" onchange="onRTCheck()">roof 5</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="6" onchange="onRTCheck()">roof 6</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="7" onchange="onRTCheck()">roof 7</input><br>');
+	$("#tool_bar").append('<input type="radio" name="rt" value="8" onchange="onRTCheck()">roof 8</input><br>');
+
+	$("#tool_bar").append('<button id="bt_house_000" class="hg_button">house 000</button>');
+	//$("#tool_bar").append('<button id="bt_house_001" class="hg_button">house 001</button>');
+	//$("#tool_bar").append('<button id="bt_house_002" class="hg_button">house 002</button>');
+	//$("#tool_bar").append('<button id="bt_house_003" class="hg_button">house 003</button>');
+	$("#tool_bar").append('<button id="bt_house_004" class="hg_button">house 004</button>');
+	$("#tool_bar").append('<button id="bt_house_005" class="hg_button">house 005</button>');
+
+	$("#tool_bar").append('<div id="l_wall_out_id">wall_out_id</div><input id="wall_out_id" type="text"></input><br>');
+	$("#tool_bar").append('wall_out_color<input id="wall_out_color" type="text"></input><br>');
+	$("#tool_bar").append('<input id="ch_plane_visible" type="checkbox" checked>');
+	$("#tool_bar").append('<button id="bt_set_out_wall_color" class="hg_button">set out wall color</button>');
+
+	$("#tool_bar").append('<div id="l_wall_in_id">wall_in_id</div><input id="wall_in_id" type="text"></input><br>');
+	$("#tool_bar").append('wall_in_color<input id="wall_in_color" type="text"></input><br>');
+	$("#tool_bar").append('<button id="bt_set_in_wall_color" class="hg_button">set in wall color</button>');
+
+
+	function onRTCheck() {
+		var rarr=document.getElementsByName("rt");
+		for (var i = 0; i < rarr.length; i++)
+			if(rarr[i].checked){
+				hg_widget.setRoof(rarr[i].value);
+		}
+	}
+
+	function onRMCheck() {
+		var rarr=document.getElementsByName("rm");
+		for (var i = 0; i < rarr.length; i++)
+			if(rarr[i].checked){
+				hg_widget.setRoofMaterial(rarr[i].value);
+		}
+	}
+
+	var hg_widget = new GH_WIDGET("parent_div");
+	//var hg_widget_1 = new GH_WIDGET("parent_div_1");
+	//$("#bt_next_roof").click( function () { hg_widget.roof_mgr.nextRoof(); } );
+	$("#bt_big_size").click( function () { hg_widget.setSize(800, 500); } );
+	$("#bt_small_size").click( function () { hg_widget.setSize(500, 500); } );
+
+	$("#bt_house_000").click( function () { load( "building_000.dae" ); } );
+	$("#bt_house_001").click( function () { load( "building_001.dae" ); } );
+	$("#bt_house_002").click( function () { load( "building_002.dae" ); } );
+	$("#bt_house_003").click( function () { load( "building_003.dae" ); } );
+	$("#bt_house_004").click( function () { load( "building_004.dae" ); } );
+	$("#bt_house_005").click( function () { load( "building_005.dae" ); } );
+
+	$("#bt_snapshot").click( function () {
+		hg_widget.makeWebGLSnapshot(1.2);
+	} );
+
+	$("#bt_set_out_wall_color").click( function () {
+		var wall_id = $("#wall_out_id").val();
+		var wall_color = $("#wall_out_color").val();
+		hg_widget.setOutdoorWallMaterial(wall_id, wall_color, undefined);
+		var plane_visible = $("#ch_plane_visible").get(0).checked;
+		hg_widget.setPlaneVisibility(wall_id, plane_visible);
+		console.log( hg_widget.getJSONForOrder(0) );
+	} );
+
+	$("#bt_set_in_wall_color").click( function () {
+		var wall_id = $("#wall_in_id").val();
+		var wall_color = $("#wall_in_color").val();
+		hg_widget.setIndoorWallMaterial(wall_id, wall_color, 0);
+	} );
+
+    function load(fname) {
+        var options = {
+            progress: "<p><b>Fortschritt</b></p>",
+            textures: "textures: ",
+            object: "object: ",
+           	bg_url: "url(img/small_size.svg)"
+        };
+        hg_widget.load(fname, function() {
+            //hg_widget.setOutdoorWallMaterial(3, 0x00ff00, undefined);
+            //hg_widget.setOutdoorWallMaterial(2, 0xff0000, undefined);
+            //hg_widget.setOutdoorWallMaterial(6, 0xff0000, 1);
+            //hg_widget.setOutdoorWallMaterial(5, 0xff0000, 2);
+
+            //hg_widget.setIndoorWallMaterial(2, 0xffff00, 0);
+            //hg_widget.setIndoorWallMaterial(4, 0x0000ff, 1);
+            //hg_widget.setIndoorWallMaterial(5, 0xff0000, 0);
+            hg_widget.setUnderRoofColor("#836e4a");
+            hg_widget.setFloorMaterial(0, 1);
+            hg_widget.setFloorMaterial(1, 0);
+            hg_widget.setFloorMaterial(3, 2);
+            hg_widget.setFrontDoorColor("#222222");
+            hg_widget.setWindowFramesColor("#333333");
+            hg_widget.showFrontDoor(3);
+
+            hg_widget.setOutdoorWalls(['0 1 2 3 4 5 6 7', '#cccccc', 1]);
+            hg_widget.setOutdoorWalls(['8 9 10,11', '#222222', 1]);
+            hg_widget.setPlateVisibility(['false']);
+            hg_widget.setIndoorWalls(['0 1 4 5', '#005500']);
+            hg_widget.setIndoorWalls(['2', '#a1c5e1']);
+            console.log( "Front doors count: " + hg_widget.getFrontDoorsCount() );
+            $("#l_wall_out_id").text("wall_out_id (0.." + (hg_widget.getOutdoorWallMaterialsCount() - 1) + ")");
+        }, options);
+    }
+
+	if (hg_widget.isWebGLActive()) {
+	    hg_widget.textures_path = "img/textures/"; // path to directory with textures. Default "img/textures/";
+	    hg_widget.objects_path = "objects/"; // path to directory with prepared scenes. Default "objects/";
+	    load( "building_005.dae" );
+	} else {
+	    var gl_error = document.createElement('div');
+	    gl_error.innerHTML = "WebGL Error";
+	    gl_error.style.marginTop = "50px";
+	    gl_error.style.fontSize = "140%";
+	    gl_error.style.color = "#ff0000";
+	    gl_error.style.textAlign = "center";
+	    hg_widget.container.appendChild(gl_error);
+	}
+
+
+
+
+    </script>
+
+  </body>
+  </html>

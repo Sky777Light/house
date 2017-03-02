@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>wiewir Widget</title>
+    <link href="css/style.css" rel="stylesheet" type="text/css">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  </head>
+  <body>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r80/three.min.js"></script>
+    <script type="text/javascript" src="js/AnimationHandler.js"></script>
+    <script type="text/javascript" src="js/ColladaLoader.js"></script>
+    <script type="text/javascript" src="js/OrbitControls.js"></script>
+    <script type="text/javascript" src="js/dat.js"></script>
+    <script type="text/javascript" src="js/Detector.js"></script>
+    <script type="text/javascript" src="js/shaders/ShaderLib.js"></script>
+    <script type="text/javascript" src="js/SkyShader.js"></script>
+    <script type="text/javascript" src="js/hg_widget.js"></script>
+    <script type="text/javascript" src="js/hg_utils.js"></script>
+    <script type="text/javascript" src="js/hg_controls.js"></script>
+    <script type="text/javascript" src="js/hg_environment.js"></script>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute float size;
+        attribute vec3 customColor;
+        attribute float alpha;
+
+        varying vec3 vColor;
+        uniform float hi;
+        varying float vAlpha;
+
+        void main()
+        {
+            vColor = customColor;
+            vAlpha = alpha;
+            vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+            gl_PointSize = size * ( 60.0 / length(mvPosition.xyz) );
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        uniform vec3 color;
+        uniform sampler2D texture;
+
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        void main()
+        {
+            gl_FragColor = vec4( color * vColor, vAlpha );
+            gl_FragColor = gl_FragColor * texture2D( texture, gl_PointCoord );
+        }
+    </script>
+
+    <script type="application/x-glsl" id="sky-vertex">
+    varying vec2 vUV;
+
+    void main() {
+      vUV = uv;
+      vec4 pos = vec4(position, 1.0);
+      gl_Position = projectionMatrix * modelViewMatrix * pos;
+    }
+    </script>
+
+    <script type="application/x-glsl" id="sky-fragment">
+    uniform sampler2D texture;
+    varying vec2 vUV;
+
+    void main() {
+      vec4 sample = texture2D(texture, vUV);
+      gl_FragColor = vec4(sample.xyz, sample.w);
+    }
+    </script>
+
+    <div id="parent_div" style="width: 100%; background: #ffffff;"></div>
+
+    <script>
+    "use strict";
+
+    var height = $(document).height();
+    $('#parent_div')[0].style.height = height+'px';
+
+    function onRTCheck() {
+      var rarr=document.getElementsByName("rt");
+      for (var i = 0; i < rarr.length; i++)
+      if(rarr[i].checked){
+        hg_widget.setRoof(rarr[i].value);
+      }
+    }
+
+    function onRMCheck() {
+      var rarr=document.getElementsByName("rm");
+      for (var i = 0; i < rarr.length; i++)
+      if(rarr[i].checked){
+        hg_widget.setRoofMaterial(rarr[i].value);
+      }
+    }
+
+    var hg_widget = new GH_WIDGET("parent_div");
+
+    function load(fname, params) {
+        var options = {
+            progress: "<p><b>Einen Moment</b></p>",
+            textures: "lulu: ",
+            object: "object: ",
+            //bg_url: "url(./img/small_size.svg)"
+        };
+        hg_widget.load(fname, function() {
+          hg_widget.setPlateVisibility(['false']);
+          hg_widget.setOutdoorWalls(['0 1 2 3 4 5 6 7', '#ffffff', 1]);
+          hg_widget.setIndoorWalls(['0 1 2 3 4 5 6 7 8 9 10 11', '#888888'])
+            for (var key in params) {
+              if (key !== 'load' && key !== undefined && key !== 'undefined') {
+                hg_widget[key](params[key]);
+              }
+            }
+        }, options);
+    }
+
+    if ( hg_widget.isWebGLActive() ) {
+      hg_widget.textures_path = "./img/textures/"; // path to directory with textures. Default "img/textures/";
+      hg_widget.objects_path = "./objects/"; // path to directory with prepared scenes. Default "objects/";
+    }
+    else {
+      var gl_error = document.createElement('div');
+      gl_error.innerHTML = "WebGL Error";
+      gl_error.style.marginTop = "50px";
+      gl_error.style.fontSize = "140%";
+      gl_error.style.color = "#ff0000";
+      gl_error.style.textAlign = "center";
+      hg_widget.container.appendChild(gl_error);
+    }
+
+
+    window.onload = function() {
+      function receiveMessage(e) {
+        // Check to make sure that this message came from the correct domain.
+        if (e.origin !== "http://planen.wie-wir.de" && e.origin !== "http://localhost:3000" && e.origin !== "http://demo.wie-wir.de" && e.origin !== "https://confugurator.scalingo.io"  )
+          return;
+
+        if (e.data.method == 'load'){
+          load(e.data.params[0], e.data.params[1])
+        }else if (e.data.method !== 'undefined'){
+          hg_widget[e.data.method].apply( this, e.data.params);
+        }
+
+      }
+
+      // Setup an event listener that calls receiveMessage() when the window
+      // receives a new MessageEvent.
+      window.addEventListener('message', receiveMessage);
+    };
+    </script>
+  </body>
+</html>
